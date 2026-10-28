@@ -1,0 +1,40 @@
+name: threat-exchange
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: threats
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${PORT_DB:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d threats"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: .
+    environment:
+      ENVIRONMENT: production
+      HTTP_ADDRESS: :8080
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/threats?sslmode=disable
+      MIGRATIONS_DIR: /migrations
+      API_KEYS: ${API_KEYS:?Set API_KEYS in .env}
+      RATE_LIMIT: ${RATE_LIMIT:-60}
+      RATE_WINDOW: ${RATE_WINDOW:-1m}
+      DB_TIMEOUT: 15s
+      SHUTDOWN_TIMEOUT: 5s
+    ports:
+      - "${PORT_API:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    stop_grace_period: 10s
+
+volumes:
+  postgres-data:

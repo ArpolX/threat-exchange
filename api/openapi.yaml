@@ -1,0 +1,365 @@
+openapi: 3.0.0
+info:
+  title: Information Exchange Service
+  description: |
+    API для обмена сведениями об угрозах файлов. MD5 является идентификатором записи.
+    При полном обновлении PUT отсутствующие необязательные поля сбрасываются:
+    description и source в пустую строку, severity и category в unknown, sha256 в null.
+    API key передаётся в X-API-Key. Оконный лимит считается отдельно для каждого ключа.
+  version: 1.0.0
+security:
+  - ApiKeyAuth: []
+paths:
+  /info:
+    post:
+      summary: Создать запись об угрозе
+      operationId: createThreat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ThreatCreateRequest'
+      responses:
+        '201':
+          description: Запись создана
+          headers:
+            Location:
+              schema: {type: string}
+              description: Путь созданной записи.
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/RateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/RateLimitReset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThreatResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /info/{md5}:
+    parameters:
+      - name: md5
+        in: path
+        required: true
+        description: MD5 файла из 32 шестнадцатеричных символов.
+        schema:
+          type: string
+          pattern: '^[a-fA-F0-9]{32}$'
+    get:
+      summary: Получить информацию об угрозе по MD5
+      operationId: getInfoByMd5
+      responses:
+        '200':
+          $ref: '#/components/responses/ThreatFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      summary: Полностью заменить сведения о существующей угрозе
+      operationId: updateThreat
+      description: MD5 и created_at остаются прежними. Отсутствующая запись возвращает 404.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ThreatUpdateRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ThreatFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  headers:
+    RateLimitLimit:
+      description: Максимальное число запросов на ключ за окно.
+      schema: {type: integer, minimum: 1}
+    RateLimitRemaining:
+      description: Оставшееся число запросов в текущем окне.
+      schema: {type: integer, minimum: 0}
+    RateLimitReset:
+      description: Время окончания окна в Unix-секундах, округлённое вверх.
+      schema: {type: integer, format: int64}
+  schemas:
+    Severity:
+      type: string
+      description: Оценка опасности источником. При отсутствии используется unknown.
+      enum: [unknown, low, medium, high, critical]
+    Category:
+      type: string
+      description: Категория угрозы по данным источника. При отсутствии используется unknown.
+      enum: [unknown, trojan, ransomware, spyware, adware, worm, virus, rootkit, other]
+    ThreatCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [md5, name]
+      properties:
+        md5:
+          type: string
+          pattern: '^[a-fA-F0-9]{32}$'
+          description: Уникальный MD5 файла; нормализуется в нижний регистр.
+          example: d41d8cd98f00b204e9800998ecf8427e
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          pattern: '\S'
+          description: Название угрозы; пробелы по краям удаляются.
+          example: Trojan.Win32.Generic
+        description:
+          type: string
+          maxLength: 4096
+          description: Описание поведения угрозы; по умолчанию пустая строка.
+        severity:
+          $ref: '#/components/schemas/Severity'
+        category:
+          $ref: '#/components/schemas/Category'
+        source:
+          type: string
+          maxLength: 255
+          description: Название источника сведений или URL. Сервис хранит строку и не обращается к источнику.
+          example: Internal analysis
+        sha256:
+          type: string
+          nullable: true
+          pattern: '^[a-fA-F0-9]{64}$'
+          description: Дополнительный хеш того же файла; нормализуется в нижний регистр. При отсутствии сохраняется null.
+    ThreatUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          pattern: '\S'
+          description: Название угрозы; пробелы по краям удаляются.
+          example: Trojan.Win32.Generic
+        description:
+          type: string
+          maxLength: 4096
+          description: Описание поведения угрозы; по умолчанию пустая строка.
+        severity:
+          $ref: '#/components/schemas/Severity'
+        category:
+          $ref: '#/components/schemas/Category'
+        source:
+          type: string
+          maxLength: 255
+          description: Название источника сведений или URL. Сервис хранит строку и не обращается к источнику.
+          example: Internal analysis
+        sha256:
+          type: string
+          nullable: true
+          pattern: '^[a-fA-F0-9]{64}$'
+          description: Дополнительный хеш того же файла; нормализуется в нижний регистр. При отсутствии сохраняется null.
+    ThreatResponse:
+      type: object
+      additionalProperties: false
+      required: [md5, name, description, severity, category, source, sha256, created_at, updated_at]
+      properties:
+        md5:
+          type: string
+          pattern: '^[a-fA-F0-9]{32}$'
+          description: Уникальный MD5 файла; нормализуется в нижний регистр.
+          example: d41d8cd98f00b204e9800998ecf8427e
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          pattern: '\S'
+          description: Название угрозы; пробелы по краям удаляются.
+          example: Trojan.Win32.Generic
+        description:
+          type: string
+          maxLength: 4096
+          description: Описание поведения угрозы; по умолчанию пустая строка.
+        severity:
+          $ref: '#/components/schemas/Severity'
+        category:
+          $ref: '#/components/schemas/Category'
+        source:
+          type: string
+          maxLength: 255
+          description: Название источника сведений или URL. Сервис хранит строку и не обращается к источнику.
+          example: Internal analysis
+        sha256:
+          type: string
+          nullable: true
+          pattern: '^[a-fA-F0-9]{64}$'
+          description: Дополнительный хеш того же файла; нормализуется в нижний регистр. При отсутствии сохраняется null.
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Время создания записи, UTC.
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Время последнего обновления записи, UTC.
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [message]
+      properties:
+        message:
+          type: string
+          description: Человекочитаемое описание ошибки.
+        details:
+          type: string
+          description: Безопасные дополнительные сведения об ошибке.
+  responses:
+    ThreatFound:
+      description: Полная информация об угрозе
+      headers:
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/RateLimitLimit'
+        X-RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimitRemaining'
+        X-RateLimit-Reset:
+          $ref: '#/components/headers/RateLimitReset'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ThreatResponse'
+    BadRequest:
+      description: Некорректный MD5 или данные запроса
+      headers:
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/RateLimitLimit'
+        X-RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimitRemaining'
+        X-RateLimit-Reset:
+          $ref: '#/components/headers/RateLimitReset'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: API key отсутствует или неверен
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Угроза с таким MD5 не найдена
+      headers:
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/RateLimitLimit'
+        X-RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimitRemaining'
+        X-RateLimit-Reset:
+          $ref: '#/components/headers/RateLimitReset'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: Угроза с таким MD5 уже существует
+      headers:
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/RateLimitLimit'
+        X-RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimitRemaining'
+        X-RateLimit-Reset:
+          $ref: '#/components/headers/RateLimitReset'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    TooLarge:
+      description: Тело запроса превышает 64 KiB
+      headers:
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/RateLimitLimit'
+        X-RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimitRemaining'
+        X-RateLimit-Reset:
+          $ref: '#/components/headers/RateLimitReset'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnsupportedMediaType:
+      description: Ожидается Content-Type application/json
+      headers:
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/RateLimitLimit'
+        X-RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimitRemaining'
+        X-RateLimit-Reset:
+          $ref: '#/components/headers/RateLimitReset'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    TooManyRequests:
+      description: Превышен оконный лимит запросов
+      headers:
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/RateLimitLimit'
+        X-RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimitRemaining'
+        X-RateLimit-Reset:
+          $ref: '#/components/headers/RateLimitReset'
+        Retry-After:
+          description: Сколько секунд ждать перед следующей попыткой.
+          schema: {type: integer, minimum: 1}
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: Внутренняя ошибка сервера
+      headers:
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/RateLimitLimit'
+        X-RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimitRemaining'
+        X-RateLimit-Reset:
+          $ref: '#/components/headers/RateLimitReset'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
