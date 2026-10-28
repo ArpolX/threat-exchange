@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+const HTTPWriteTimeout = 15 * time.Second
+
 type Config struct {
 	Environment     string
 	HTTPAddress     string
@@ -17,6 +19,7 @@ type Config struct {
 	RateLimit       int
 	RateWindow      time.Duration
 	DBTimeout       time.Duration
+	DBQueryTimeout  time.Duration
 	ShutdownTimeout time.Duration
 	TLSCertFile     string
 	TLSKeyFile      string
@@ -55,6 +58,7 @@ func Load() (Config, error) {
 	}{
 		{"RATE_WINDOW", "1m", &cfg.RateWindow},
 		{"DB_TIMEOUT", "15s", &cfg.DBTimeout},
+		{"DB_QUERY_TIMEOUT", "5s", &cfg.DBQueryTimeout},
 		{"SHUTDOWN_TIMEOUT", "5s", &cfg.ShutdownTimeout},
 	} {
 		parsed, err := time.ParseDuration(value(setting.name, setting.fallback))
@@ -62,6 +66,9 @@ func Load() (Config, error) {
 			return Config{}, fmt.Errorf("%s must be a positive duration", setting.name)
 		}
 		*setting.target = parsed
+	}
+	if cfg.DBQueryTimeout > HTTPWriteTimeout-time.Second {
+		return Config{}, fmt.Errorf("DB_QUERY_TIMEOUT must not exceed %s", HTTPWriteTimeout-time.Second)
 	}
 	return cfg, nil
 }

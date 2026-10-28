@@ -12,6 +12,9 @@ import (
 )
 
 func (r *Repository) Update(ctx context.Context, md5 string, input domain.ThreatInput) (*domain.Threat, error) {
+	ctx, cancel := r.queryContext(ctx)
+	defer cancel()
+
 	row := r.pool.QueryRow(ctx, `UPDATE threats SET name = $2, description = $3, severity = $4,
   category = $5, source = $6, sha256 = $7, updated_at = clock_timestamp()
   WHERE md5 = $1 RETURNING `+threatColumns,

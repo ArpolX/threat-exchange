@@ -12,6 +12,9 @@ import (
 )
 
 func (r *Repository) Get(ctx context.Context, md5 string) (*domain.Threat, error) {
+	ctx, cancel := r.queryContext(ctx)
+	defer cancel()
+
 	threat, err := scanThreat(r.pool.QueryRow(ctx, `SELECT `+threatColumns+` FROM threats WHERE md5 = $1`, md5))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, apperror.ErrNotFound

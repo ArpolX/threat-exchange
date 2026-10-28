@@ -1,6 +1,8 @@
 package postgres
 
 import (
+	"context"
+
 	"threat-exchange/internal/domain"
 
 	"github.com/jackc/pgx/v5"
@@ -16,4 +18,8 @@ func scanThreat(row pgx.Row) (*domain.Threat, error) {
 		return nil, err
 	}
 	return &threat, nil
+}
+
+func (r *Repository) queryContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(ctx, r.queryTimeout)
 }

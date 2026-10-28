@@ -36,7 +36,7 @@ func Run(ctx context.Context) error {
 
 	startupCtx, cancelStartup := context.WithTimeout(ctx, cfg.DBTimeout)
 	defer cancelStartup()
-	pool, err := infrastructure.ConnectPostgres(startupCtx, cfg.DatabaseURL)
+	pool, err := infrastructure.ConnectPostgres(startupCtx, cfg.DatabaseURL, cfg.DBQueryTimeout)
 	if err != nil {
 		return err
 	}
@@ -46,7 +46,7 @@ func Run(ctx context.Context) error {
 	}
 	cancelStartup()
 
-	repository := postgres.New(pool)
+	repository := postgres.New(pool, cfg.DBQueryTimeout)
 	threatService := service.New(repository)
 	limiter, err := middleware.NewLimiter(cfg.RateLimit, cfg.RateWindow, time.Now)
 	if err != nil {
@@ -60,7 +60,7 @@ func Run(ctx context.Context) error {
 	server := &http.Server{
 		Addr: cfg.HTTPAddress, Handler: router,
 		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second,
-		WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second,
+		WriteTimeout: config.HTTPWriteTimeout, IdleTimeout: 60 * time.Second,
 		MaxHeaderBytes: 16 << 10,
 		TLSConfig:      &tls.Config{MinVersion: tls.VersionTLS12},
 	}

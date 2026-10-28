@@ -28,6 +28,7 @@ services:
       RATE_LIMIT: ${RATE_LIMIT:-60}
       RATE_WINDOW: ${RATE_WINDOW:-1m}
       DB_TIMEOUT: 15s
+      DB_QUERY_TIMEOUT: ${DB_QUERY_TIMEOUT:-5s}
       SHUTDOWN_TIMEOUT: 5s
     ports:
       - "${PORT_API:-8080}:8080"

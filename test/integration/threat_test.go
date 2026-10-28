@@ -87,7 +87,7 @@ func TestHTTPFlowWithPostgresAndOpenAPIResponses(t *testing.T) {
 	limiter, err := middleware.NewLimiter(100, time.Minute, time.Now)
 	require.NoError(t, err)
 	log := zap.NewNop()
-	ctrl := controller.New(service.New(postgres.New(pool)), log)
+	ctrl := controller.New(service.New(postgres.New(pool, 5*time.Second)), log)
 	router, err := handlers.NewRouter(ctrl, log, middleware.APIKeyAuth([]string{apiKey}), limiter.Middleware())
 	require.NoError(t, err)
 	server := httptest.NewServer(router)
@@ -148,7 +148,7 @@ func TestHTTPFlowWithPostgresAndOpenAPIResponses(t *testing.T) {
 
 func TestConcurrentCreatesHaveOneWinner(t *testing.T) {
 	pool, _ := database(t)
-	svc := service.New(postgres.New(pool))
+	svc := service.New(postgres.New(pool, 5*time.Second))
 	var created, conflicts atomic.Int32
 	var group sync.WaitGroup
 	unexpected := make(chan error, 24)
@@ -191,7 +191,7 @@ func TestConstraintsAndMigrationRoundTrip(t *testing.T) {
 	require.Nil(t, table)
 	_, err = provider.Up(ctx)
 	require.NoError(t, err)
-	threat, err := service.New(postgres.New(pool)).Create(ctx, md5, domain.ThreatInput{Name: "After migration"})
+	threat, err := service.New(postgres.New(pool, 5*time.Second)).Create(ctx, md5, domain.ThreatInput{Name: "After migration"})
 	require.NoError(t, err)
 	require.Equal(t, md5, threat.MD5, fmt.Sprint(threat))
 }

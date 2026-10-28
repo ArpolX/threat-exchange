@@ -12,6 +12,9 @@ import (
 )
 
 func (r *Repository) Create(ctx context.Context, md5 string, input domain.ThreatInput) (*domain.Threat, error) {
+	ctx, cancel := r.queryContext(ctx)
+	defer cancel()
+
 	row := r.pool.QueryRow(ctx, `INSERT INTO threats (md5, name, description, severity, category, source, sha256)
   VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING `+threatColumns,
 		md5, input.Name, input.Description, input.Severity, input.Category, input.Source, input.SHA256)

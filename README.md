@@ -1,17 +1,21 @@
 # Информационный сервис об угрозах
 ## Запуск
 
-Клонируйте репозиторий
-```
+```sh
 git clone https://github.com/ArpolX/threat-exchange
+cd threat-exchange
+cp .env.example .env
 ```
 
-Запуск
-```
+
+Затем запустите сервис:
+
+```sh
 docker compose up --build
 ```
+
 ## API
-API доступен на `localhost:8080`, PostgreSQL - на `localhost:5432`. Порты задаются через `PORT_API` и `PORT_DB`, ключи — через `API_KEYS` в `.env`. Миграции применяются автоматически, данные сохраняются между запусками.
+API доступен на `localhost:8080`, PostgreSQL - на `localhost:5432`. Порты задаются через `PORT_API` и `PORT_DB`, ключи - через `API_KEYS` в `.env`. Миграции применяются автоматически, данные сохраняются между запусками.
 
 ## Как проверить API через Postman
 
