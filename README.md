@@ -3,7 +3,7 @@
 
 Клонируйте репозиторий
 ```
-git clone https://github.com/ArpolX/
+git clone https://github.com/ArpolX/threat-exchange
 ```
 
 Запуск
